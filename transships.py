@@ -1,4 +1,5 @@
 import csv
+import datetime
 
 """ My understanding:
         When a ship arrives it discharges some cargo, which is then stored.
@@ -34,15 +35,29 @@ cargo_stacks = [list(), list(), list(), list()]
 # Dictionary used to store how much a vessel id transships
 transships = {}
 
-with open("VesselDataDebug.csv", "r") as csvFile:
+# Dictionary used to store data about ships for analysis
+ship_data_dict = {}
+
+with open("VesselData.csv", "r") as csvFile:
     reader = csv.reader(csvFile, delimiter=',', quotechar='"')
 
     next(reader) # Skip header file
     
     for ship_data in reader:
-        # Extract discharge1, load1, discharge2, load2, ... , discharge4, load4
-        _, _, _, _, _, d1, l1, d2, l2, d3, l3, d4, l4, _, _, _, _, _, _, _, _, vessel_id = ship_data
-
+        # Extract discharge1, load1, discharge2, load2, ... , discharge4, load4 as well as other data for analysis
+        eta, ata, atd, vesseldwt, vesseltype, d1, l1, d2, l2, d3, l3, d4, l4, stevedore, hasnohamis, earliesteta, latesteta, traveltype, previousportid, nextportid, isremarkable, vessel_id = ship_data
+        
+        ship_data_dict[vessel_id] = {"eta": eta,
+                                "ata": ata,
+                                "atd": atd,
+                                "vesseldwt": vesseldwt,
+                                "vesseltype":vesseltype,
+                                "stevedore": stevedore,
+                                "hasnohamis": hasnohamis,
+                                "earliesteta": earliesteta,
+                                "latesteta": latesteta,
+                                "traveltype": traveltype           
+            }
         for i, (cargo_stack, data) in enumerate(zip(cargo_stacks, [(d1, l1), (d2, l2), (d3, l3), (d4, l4)])):
             discharge, load = map(int, data)
 
@@ -61,7 +76,8 @@ with open("VesselDataDebug.csv", "r") as csvFile:
                 if cargo_stack[-1].quantity >= load:
                     # If the load can be finished using cargo from one ship
                     cargo_stack[-1].quantity -= load
-                    
+
+                    # Keep track of origin of cargo and how much cargo has been transported
                     transship_cargo_origin_id = cargo_stack[-1].origin
                     transship_quantity = load
 
@@ -71,10 +87,36 @@ with open("VesselDataDebug.csv", "r") as csvFile:
                     moved_cargo = cargo_stack.pop()
                     load -= moved_cargo.quantity
 
+                    # Keep track of origin of cargo and how much cargo has been transported
                     transship_cargo_origin_id = moved_cargo.origin
                     transship_quantity = moved_cargo.quantity
 
-                
+                # Update tranship counter for each vessel
                 transships[transship_cargo_origin_id] = transships.get(transship_cargo_origin_id, 0) + transship_quantity
-            
-print(transships)
+
+# First graph (vessel type to transshipments)
+'''for ship in sorted(transships, key=lambda n:transships[n]):
+    print(transships[ship], ship_data_dict[ship]['vesseltype'])'''
+
+# Mean and SD
+'''for vessel_type in ['1', '2', '3', '4', '5', '6']:
+    # Find ships that are of a given vessel type
+    filtered_data = [transships[ship] for ship in transships if ship_data_dict[ship]['vesseltype'] == vessel_type]
+
+    if not filtered_data:
+        # Skip if there are no ships of the given vessel type
+        continue
+    
+    mean = sum(filtered_data) / len(data)
+
+    print(vessel_type)
+    print("Mean", mean)
+    print("SD", (sum((item - mean) ** 2 for item in filtered_data) / len(filtered_data)) ** 0.5)'''
+
+
+# Second graph (lateness to transshipments)
+'''for ship in sorted(transships, key=lambda n:transships[n]):
+    eta = datetime.datetime.strptime(ship_data_dict[ship]['eta'], '%Y-%m-%d %H:%M:%S+00')
+    ata = datetime.datetime.strptime(ship_data_dict[ship]['ata'], '%Y-%m-%d %H:%M:%S+00')
+    print(transships[ship], (ata - eta).days)'''
+
